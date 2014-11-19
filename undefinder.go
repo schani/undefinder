@@ -2,15 +2,15 @@ package main
 
 import (
 	"bufio"
+	"fmt"
+	"io"
 	"log"
 	"os"
-	"io"
-	"regexp"
 	"path/filepath"
-	"strings"
+	"regexp"
 	"runtime"
-	"fmt"
 	"sort"
+	"strings"
 )
 
 type location struct {
@@ -21,7 +21,7 @@ type location struct {
 var defineRegexp *regexp.Regexp
 var useRegexp *regexp.Regexp
 
-func initRegexps () {
+func initRegexps() {
 	var err error
 
 	defineRegexp, err = regexp.Compile("#\\s*define\\s+([A-Za-z_]\\w*)")
@@ -39,7 +39,7 @@ func initRegexps () {
 
 // Read defined and used symbols in the file at path.  Return a set of
 // defined and a set of used symbols.
-func readDefines (path string) (map[string]location, map[string]bool) {
+func readDefines(path string) (map[string]location, map[string]bool) {
 	definesDefined := make(map[string]location)
 	symbolsUsed := make(map[string]bool)
 
@@ -48,13 +48,13 @@ func readDefines (path string) (map[string]location, map[string]bool) {
 		log.Fatal(err)
 	}
 	defer file.Close()
-	reader := bufio.NewReader (file)
+	reader := bufio.NewReader(file)
 
 	numLines := 0
 	for {
 		line, err := reader.ReadString('\n')
 		if err == io.EOF {
-			break;
+			break
 		} else if err != nil {
 			log.Fatal(err)
 		}
@@ -83,7 +83,7 @@ func readDefines (path string) (map[string]location, map[string]bool) {
 	return definesDefined, symbolsUsed
 }
 
-func walkFilesForProcessFunc (processFile func(path string)) filepath.WalkFunc {
+func walkFilesForProcessFunc(processFile func(path string)) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
 		base := filepath.Base(path)
 		if info.IsDir() {
@@ -93,7 +93,7 @@ func walkFilesForProcessFunc (processFile func(path string)) filepath.WalkFunc {
 			return nil
 		}
 		if !info.Mode().IsRegular() {
-			return nil;
+			return nil
 		}
 		if strings.HasSuffix(base, ".c") || strings.HasSuffix(base, ".h") {
 			processFile(path)
@@ -107,7 +107,7 @@ func main() {
 
 	type fileResults struct {
 		definesDefined map[string]location
-		symbolsUsed map[string]bool
+		symbolsUsed    map[string]bool
 	}
 
 	initRegexps()
@@ -130,11 +130,11 @@ func main() {
 	}()
 
 	for {
-		_, ok := <- countChannel
+		_, ok := <-countChannel
 		if !ok {
 			break
 		}
-		results := <- resultsChannel
+		results := <-resultsChannel
 		for symbol, location := range results.definesDefined {
 			definesDefined[symbol] = location
 		}
