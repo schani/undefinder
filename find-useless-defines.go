@@ -75,34 +75,31 @@ func readDefines (path string) (map[string]bool, map[string]bool) {
 	return definesDefined, symbolsUsed
 }
 
-var files map[string]bool
-
-func walkFiles (path string, info os.FileInfo, err error) error {
-	base := filepath.Base(path)
-	if info.IsDir() {
-		if strings.HasPrefix(base, ".") {
-			return filepath.SkipDir
+func walkFilesForProcessFunc (processFile func(path string)) filepath.WalkFunc {
+	return func(path string, info os.FileInfo, err error) error {
+		base := filepath.Base(path)
+		if info.IsDir() {
+			if strings.HasPrefix(base, ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return nil;
+		}
+		if strings.HasSuffix(base, ".c") || strings.HasSuffix(base, ".h") {
+			processFile(path)
 		}
 		return nil
 	}
-	if !info.Mode().IsRegular() {
-		return nil;
-	}
-	if strings.HasSuffix(base, ".c") || strings.HasSuffix(base, ".h") {
-		files[path] = true
-	}
-	return nil
 }
 
 func main() {
 	initRegexps()
-	files = make(map[string]bool)
 	definesDefined := make(map[string]bool)
 	symbolsUsed := make(map[string]bool)
 
-	filepath.Walk("/Users/schani/Work/mono/mono/mono", walkFiles)
-
-	for path, _ := range files {
+	walkFiles := walkFilesForProcessFunc(func(path string) {
 		defined, used := readDefines(path)
 		for symbol, _ := range defined {
 			definesDefined[symbol] = true
@@ -110,7 +107,9 @@ func main() {
 		for symbol, _ := range used {
 			symbolsUsed[symbol] = true
 		}
-	}
+	})
+
+	filepath.Walk("/Users/schani/Work/mono/mono/mono", walkFiles)
 
 	for symbol, _ := range definesDefined {
 		if !symbolsUsed[symbol] {
