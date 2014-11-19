@@ -9,7 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 	"runtime"
+	"fmt"
+	"sort"
 )
+
+type location struct {
+	path string
+	line int
+}
 
 var defineRegexp *regexp.Regexp
 var useRegexp *regexp.Regexp
@@ -32,8 +39,8 @@ func initRegexps () {
 
 // Read defined and used symbols in the file at path.  Return a set of
 // defined and a set of used symbols.
-func readDefines (path string) (map[string]bool, map[string]bool) {
-	definesDefined := make(map[string]bool)
+func readDefines (path string) (map[string]location, map[string]bool) {
+	definesDefined := make(map[string]location)
 	symbolsUsed := make(map[string]bool)
 
 	file, err := os.Open(path)
@@ -59,7 +66,7 @@ func readDefines (path string) (map[string]bool, map[string]bool) {
 		defineMatch := defineRegexp.FindStringSubmatch(line)
 		if defineMatch != nil {
 			definedSymbol = defineMatch[1]
-			definesDefined[definedSymbol] = true
+			definesDefined[definedSymbol] = location{path, numLines}
 			//log.Print("line ", numLines, " defined ", definedSymbol)
 		}
 
@@ -99,12 +106,12 @@ func main() {
 	runtime.GOMAXPROCS(8)
 
 	type fileResults struct {
-		definesDefined map[string]bool
+		definesDefined map[string]location
 		symbolsUsed map[string]bool
 	}
 
 	initRegexps()
-	definesDefined := make(map[string]bool)
+	definesDefined := make(map[string]location)
 	symbolsUsed := make(map[string]bool)
 	countChannel := make(chan bool, 16)
 	resultsChannel := make(chan fileResults)
@@ -128,17 +135,26 @@ func main() {
 			break
 		}
 		results := <- resultsChannel
-		for symbol, _ := range results.definesDefined {
-			definesDefined[symbol] = true
+		for symbol, location := range results.definesDefined {
+			definesDefined[symbol] = location
 		}
 		for symbol, _ := range results.symbolsUsed {
 			symbolsUsed[symbol] = true
 		}
 	}
 
+	unusedSymbols := []string{}
+
 	for symbol, _ := range definesDefined {
 		if !symbolsUsed[symbol] {
-			log.Print("define ", symbol, " not used")
+			unusedSymbols = append(unusedSymbols, symbol)
 		}
+	}
+
+	sort.Strings(unusedSymbols)
+
+	for _, symbol := range unusedSymbols {
+		location := definesDefined[symbol]
+		fmt.Printf("%s:%d: define '%s' not used\n", location.path, location.line, symbol)
 	}
 }
