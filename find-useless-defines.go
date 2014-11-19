@@ -95,21 +95,41 @@ func walkFilesForProcessFunc (processFile func(path string)) filepath.WalkFunc {
 }
 
 func main() {
+	type fileResults struct {
+		definesDefined map[string]bool
+		symbolsUsed map[string]bool
+	}
+
 	initRegexps()
 	definesDefined := make(map[string]bool)
 	symbolsUsed := make(map[string]bool)
+	countChannel := make(chan bool)
+	resultsChannel := make(chan fileResults)
 
 	walkFiles := walkFilesForProcessFunc(func(path string) {
+		countChannel <- true
 		defined, used := readDefines(path)
-		for symbol, _ := range defined {
-			definesDefined[symbol] = true
-		}
-		for symbol, _ := range used {
-			symbolsUsed[symbol] = true
-		}
+		resultsChannel <- fileResults{defined, used}
 	})
 
-	filepath.Walk("/Users/schani/Work/mono/mono/mono", walkFiles)
+	go func() {
+		filepath.Walk("/Users/schani/Work/mono/mono/mono", walkFiles)
+		close(countChannel)
+	} ()
+
+	for {
+		_, ok := <- countChannel
+		if !ok {
+			break
+		}
+		results := <- resultsChannel
+		for symbol, _ := range results.definesDefined {
+			definesDefined[symbol] = true
+		}
+		for symbol, _ := range results.symbolsUsed {
+			symbolsUsed[symbol] = true
+		}
+	}
 
 	for symbol, _ := range definesDefined {
 		if !symbolsUsed[symbol] {
