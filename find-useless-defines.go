@@ -29,10 +29,12 @@ func initRegexps () {
 	useRegexp.Longest()
 }
 
-var definesDefined map[string]bool
-var symbolsUsed map[string]bool
+// Read defined and used symbols in the file at path.  Return a set of
+// defined and a set of used symbols.
+func readDefines (path string) (map[string]bool, map[string]bool) {
+	definesDefined := make(map[string]bool)
+	symbolsUsed := make(map[string]bool)
 
-func readDefines (path string) {
 	file, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
@@ -69,6 +71,8 @@ func readDefines (path string) {
 			}
 		}
 	}
+
+	return definesDefined, symbolsUsed
 }
 
 var files map[string]bool
@@ -93,13 +97,19 @@ func walkFiles (path string, info os.FileInfo, err error) error {
 func main() {
 	initRegexps()
 	files = make(map[string]bool)
-	definesDefined = make(map[string]bool)
-	symbolsUsed = make(map[string]bool)
+	definesDefined := make(map[string]bool)
+	symbolsUsed := make(map[string]bool)
 
 	filepath.Walk("/Users/schani/Work/mono/mono/mono", walkFiles)
 
 	for path, _ := range files {
-		readDefines(path)
+		defined, used := readDefines(path)
+		for symbol, _ := range defined {
+			definesDefined[symbol] = true
+		}
+		for symbol, _ := range used {
+			symbolsUsed[symbol] = true
+		}
 	}
 
 	for symbol, _ := range definesDefined {
