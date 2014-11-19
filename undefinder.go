@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -102,6 +103,24 @@ func walkFilesForProcessFunc(processFile func(path string)) filepath.WalkFunc {
 	}
 }
 
+type stringAccumulator struct {
+	strings []string
+}
+
+func (this *stringAccumulator) String() string {
+	return "PATTERN"
+}
+
+func (this *stringAccumulator) Set(s string) error {
+	this.strings = append(this.strings, s)
+	return nil
+}
+
+func usage() {
+	fmt.Fprintf(os.Stderr, "Usage: %s OPTIONS DIR\n", filepath.Base(os.Args[0]))
+	flag.PrintDefaults()
+}
+
 func main() {
 	runtime.GOMAXPROCS(8)
 
@@ -110,12 +129,21 @@ func main() {
 		symbolsUsed    map[string]bool
 	}
 
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s DIR\n", filepath.Base(os.Args[0]))
+	flag.Usage = usage
+
+	excludeDefines := stringAccumulator{[]string{}}
+	flag.Var(&excludeDefines, "exclude-defines", "exclude defines from files with base names that match PATTERN")
+
+	flag.Parse()
+
+	args := flag.Args()
+
+	if len(args) != 1 {
+		usage()
 		os.Exit(1)
 	}
 
-	rootPath := os.Args[1]
+	rootPath := args[0]
 
 	initRegexps()
 	definesDefined := make(map[string]location)
@@ -124,9 +152,21 @@ func main() {
 	resultsChannel := make(chan fileResults)
 
 	walkFiles := walkFilesForProcessFunc(func(path string) {
+		base := filepath.Base(path)
+		includeDefined := true
+		for _, pattern := range excludeDefines.strings {
+			matched, _ := filepath.Match(pattern, base)
+			if matched {
+				includeDefined = false
+				break
+			}
+		}
 		countChannel <- true
 		go func() {
 			defined, used := readDefines(path)
+			if !includeDefined {
+				defined = make(map[string]location)
+			}
 			resultsChannel <- fileResults{defined, used}
 		}()
 	})
