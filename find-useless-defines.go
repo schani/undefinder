@@ -81,6 +81,9 @@ func walkFiles (path string, info os.FileInfo, err error) error {
 		}
 		return nil
 	}
+	if !info.Mode().IsRegular() {
+		return nil;
+	}
 	if strings.HasSuffix(base, ".c") || strings.HasSuffix(base, ".h") {
 		files[path] = true
 	}
