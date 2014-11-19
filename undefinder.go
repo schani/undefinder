@@ -110,6 +110,13 @@ func main() {
 		symbolsUsed    map[string]bool
 	}
 
+	if len(os.Args) != 2 {
+		fmt.Fprintf(os.Stderr, "Usage: %s DIR\n", filepath.Base(os.Args[0]))
+		os.Exit(1)
+	}
+
+	rootPath := os.Args[1]
+
 	initRegexps()
 	definesDefined := make(map[string]location)
 	symbolsUsed := make(map[string]bool)
@@ -125,7 +132,7 @@ func main() {
 	})
 
 	go func() {
-		filepath.Walk("/Users/schani/Work/mono/mono/mono", walkFiles)
+		filepath.Walk(rootPath, walkFiles)
 		close(countChannel)
 	}()
 
