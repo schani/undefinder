@@ -11,6 +11,6 @@ occurrences of macros in comments as uses.
 
 Requires [go](https://golang.org/).
 
-    go undefinder.go /my/c/codebase
+    go run undefinder.go /my/c/codebase
 
 The output can be parsed like C compiler errors/warnings.
