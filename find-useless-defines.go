@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"path/filepath"
 	"strings"
+	"runtime"
 )
 
 var defineRegexp *regexp.Regexp
@@ -95,6 +96,8 @@ func walkFilesForProcessFunc (processFile func(path string)) filepath.WalkFunc {
 }
 
 func main() {
+	runtime.GOMAXPROCS(8)
+
 	type fileResults struct {
 		definesDefined map[string]bool
 		symbolsUsed map[string]bool
@@ -103,19 +106,21 @@ func main() {
 	initRegexps()
 	definesDefined := make(map[string]bool)
 	symbolsUsed := make(map[string]bool)
-	countChannel := make(chan bool)
+	countChannel := make(chan bool, 16)
 	resultsChannel := make(chan fileResults)
 
 	walkFiles := walkFilesForProcessFunc(func(path string) {
 		countChannel <- true
-		defined, used := readDefines(path)
-		resultsChannel <- fileResults{defined, used}
+		go func() {
+			defined, used := readDefines(path)
+			resultsChannel <- fileResults{defined, used}
+		}()
 	})
 
 	go func() {
 		filepath.Walk("/Users/schani/Work/mono/mono/mono", walkFiles)
 		close(countChannel)
-	} ()
+	}()
 
 	for {
 		_, ok := <- countChannel
